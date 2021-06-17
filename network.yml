@@ -1,0 +1,696 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Ce template deploie un VPC avec la creation de sous-reseaux repartis dans plusieurs zones de disponibilite,...
+
+# 
+# Projet de migration                    
+#
+#........ Dacky GOMIS ........#####
+#
+
+Mappings: 
+  RegionMap: 
+    eu-west-3:
+      AMI: "ami-089d839e690b09b28"
+    eu-west-2:
+      AMI: "ami-0e169fa5b2b2f88ae"
+    eu-west-1:
+      AMI: "ami-0dc8d444ee2a42d8a"
+Parameters:
+  Owner:
+    Description: Renseigner le nom du createur du template
+    Type: String
+    Default: Dacky GOMIS
+  Project:
+    Description: Renseigner le nom du project
+    Type: String
+    Default: Migration vers AWS
+  VpcCidrBlock:
+    Type: String
+    MinLength: '11'
+    MaxLength: '18'
+    Default: 10.0.0.0/16
+    Description: Renseigner le block cidr du reseau VPC
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
+  ReseauLocalDistant:
+    Description: Renseigner la Plage adresse IP du reseau distant
+    Type: String
+    MinLength: '11'
+    MaxLength: '18'
+    Default: 172.16.10.0/16
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
+  IPPublicDistant:
+    Description: Ip public du client distant
+    Type: String
+    ConstraintDescription: Renseigner une IP du client autorise a se connecter au serveur
+  AdresseEmail:
+    Description: Adresse mail de contact
+    Type: String
+    ConstraintDescription: Renseigner une adresse mail de contact pour les alertes ou notifications mails
+  DBName:
+    Default: wordpressdb
+    Description: Ma base de donnee
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  DBUsername:
+    NoEcho: 'true'
+    Description: Utilisateur autorise a acceder a la BDD
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  DBPassword:
+    NoEcho: 'true'
+    Description: Saisir le mot de passe pour acceder a la BDD
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
+  WPAdminUsername:
+    NoEcho: 'true'
+    Description: Utilisateur autorise a se connecter sur interface wordpress 
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  WpAdminPassword:
+    NoEcho: 'true'
+    Description: Saisir le mot de passe pour un acces web de wordpress
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Contient uniquement des caracteres alphanumeriques.    
+Resources:
+  #------ PARTIE RESEAU : VPC et SOUS-RESEAUX ------
+  #------ Création de mon VPC avec son block CIDR 10.0.0.0/16
+  BenitcheVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      EnableDnsHostnames: 'true'
+      CidrBlock: !Ref VpcCidrBlock
+      Tags:
+        - Key: Name
+          Value: BenitcheVPC
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: !Ref Project
+#------Creation du sous-reseau prive BenitcheIntranet
+  BenitcheIntranet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt BenitcheVPC.CidrBlock, 1, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'BenitcheIntranet'
+      VpcId: !Ref BenitcheVPC
+#------ CREATION DES SOUS-RESEAUX PUBLIC DES ZONES A ET B ------
+#--- Creation du sous-reseau public BenitchePublicA de la zone A
+  BenitchePublicA:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Select [ 100, !Cidr [ !GetAtt BenitcheVPC.CidrBlock, 101, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'BenitchePublicA'
+      VpcId: !Ref BenitcheVPC
+#------Creation du sous-reseau public BenitchePublicB de la zone B
+  BenitchePublicB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: 'BenitchePublicB'
+      VpcId: !Ref BenitcheVPC
+      CidrBlock: !Select [ 101, !Cidr [ !GetAtt BenitcheVPC.CidrBlock, 102, 8 ]]
+#------ Création de la passerelle internet pour faire 
+#------ communiquer mon VPC et mes sous-réseaux publics
+  PasserelleInternetVPC:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: 'PasserelleInternetVPC'
+#------ On associe la passerelle Internet creee au VPC
+  AttachInternetGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref BenitcheVPC
+      InternetGatewayId: !Ref PasserelleInternetVPC
+#------ Creation l'adresse IP Elastique (adresse IPv4 publique,accessible 
+#------ depuis Internet) qui sera associee a la passerelle Nat du sous-reseau prive Intranet a creer.
+  IPElasticIntranet:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: IPElasticIntranet
+      Domain: vpc
+#------Creation de la passerelle Nat pour le sous-reseau prive Intranet
+  PasserelleNatBenitcheIntranet:
+    DependsOn: AttachInternetGateway
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt IPElasticIntranet.AllocationId
+      SubnetId: !Ref BenitcheIntranet
+      Tags:
+        - Key: Name
+          Value: PasserelleNatBenitcheIntranet
+#------ TABLES DE ROUTAGE ------
+#------Creation de la table de routage pour le sous-reseau prive BenitcheIntranet
+  TableRoutageBenitcheIntranet:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: TableRoutageBenitcheIntranet
+#------On associe TableRoutageBenitcheIntranetRelie au sous-reseau prive BenitcheIntranet 
+  TableRoutageBenitcheIntranetRelie:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref TableRoutageBenitcheIntranet
+      SubnetId: !Ref BenitcheIntranet
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive BenitcheIntranet vers sa passerelle Nat       
+  RouteBenitcheIntranet:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref PasserelleNatBenitcheIntranet
+      RouteTableId: !Ref TableRoutageBenitcheIntranet
+#------ Creation de la table de routage pour le sous-reseau public BenitchePublicA de la zone A
+  TableRoutageBenitchePublicA:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: TableRoutageBenitchePublicA
+#------ On associe TableRoutageBenitchePublicA au sous-reseau public BenitchePublicA de la zone A
+  TableRoutageBenitchePublicARelie:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref TableRoutageBenitchePublicA
+      SubnetId: !Ref BenitchePublicA
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau public BenitchePublicA vers la passerelle Internet du VPC   
+  RouteBenitchePublicA:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref PasserelleInternetVPC
+      RouteTableId: !Ref TableRoutageBenitchePublicA
+#------ Creation de la table de routage pour le sous-reseau public BenitchePublicB de la zone B
+  TableRoutageBenitchePublicB:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: TableRoutageBenitchePublicB
+#------ On associe la TableRoutageBenitchePublicB au sous-reseau public BenitchePublicB de la zone B
+  TableRoutageBenitchePublicBRelie:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref TableRoutageBenitchePublicB
+      SubnetId: !Ref BenitchePublicB
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau public BenitchePublicB vers la passerelle Internet du VPC   
+  RouteBenitchePublicB:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref PasserelleInternetVPC
+      RouteTableId: !Ref TableRoutageBenitchePublicB
+  #
+  #------PARTIE INFRASTRUCTURE ------
+  # 
+#------ Creation des groupes de sous-reseaux pour les instances de bases de donnees Master et Replica
+  BenitcheDBSousReseau:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties: 
+      DBSubnetGroupDescription: Groupe de sous-reseaux pour les BDD
+      SubnetIds: 
+        - !Ref BenitchePublicA
+        - !Ref BenitchePublicB
+      Tags:
+        - Key: Name
+          Value: BenitcheDBSousReseau
+#------ Creation des groupes de securite autorise a se connecter sur les ressources du VPC
+#------ Pour l'Ingress Groupe, se sera l'adresse du LoadBalancer     
+  WebSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Autorisation de la connexion http et https au LoadBalancer
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0 # Ip LoadBalancer
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: WebSecurityGroup       
+#------ Groupe de sécurité  SSH
+  SSHSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Autorisation de la connexion ssh uniquement depuis le reseau interne  
+      SecurityGroupIngress: 
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0 # réseau interne
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: SSHSecurityGroup      
+#------ Security Group RDS
+  WordpressRDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Autorisation de la connexion a la base de donnees depuis le reseau interne
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 10.0.0.0/16
+      - IpProtocol: udp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 10.0.0.0/16
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: WordpressRDSSecurityGroup      
+#------ Groupe de sécurité pour le VPN           
+  VPNSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Pour Instance EC2
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:       
+      - IpProtocol: udp
+        FromPort: 5400
+        ToPort: 5400
+        CidrIp: 0.0.0.0/0 # réseau distant serveur vpn
+      - IpProtocol: udp
+        FromPort: 500
+        ToPort: 500
+        CidrIp: 0.0.0.0/0  # réseau distant serveur vpn   
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: VPNSecurityGroup
+#------ Creation de la launchconfiguration qui est la machine "patron" 
+#------ qui servira de modele de base pour la creation des autres machines      
+  BenitcheLaunchConfig:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    DependsOn: BenitcheLoadBalancer
+    Properties:
+      AssociatePublicIpAddress: true
+      InstanceMonitoring: true     
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      KeyName: MyNetworkKey
+      SecurityGroups:
+        - !Ref WebSecurityGroup
+        - !Ref SSHSecurityGroup
+        - !Ref WordpressRDSSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update && sudo apt-get upgrade -y
+          sudo groupadd docker
+          sudo usermod -a -G docker ubuntu
+          sudo apt-get -y install stress
+          sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          sudo apt-get update
+          sudo apt-get -y install docker-ce docker-ce-cli containerd.io
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          sudo touch docker-compose.yml
+          echo "version: '3.3'
+          services:        
+            wordpress:
+              image: conetix/wordpress-with-wp-cli
+              container_name: wordpress
+              restart: always
+              ports:
+                - 80:80
+              environment:
+                WORDPRESS_DB_HOST: ${DockerWordpressMaster.Endpoint.Address}:3306
+                WORDPRESS_DB_USER: ${DBUsername}
+                WORDPRESS_DB_PASSWORD: ${DBPassword}
+                WORDPRESS_DB_NAME: ${DBName}
+                WORDPRESS_TABLE_PREFIX: "wp_"
+                WORDPRESS_DEBUG: 1
+              volumes: 
+                - wp_data:/var/www/html
+          volumes:
+            wp_data:" > /home/ubuntu/docker-compose.yml
+          cd /home/ubuntu/
+          sudo docker-compose up -d --build
+          sudo docker-compose exec -T wordpress wp core install --url=${BenitcheLoadBalancer.DNSName} --title=BenitcheWeb --admin_user=${WPAdminUsername} --admin_password=${WpAdminPassword} --admin_email=${AdresseEmail} --skip-email
+          sudo docker-compose exec -T wordpress wp core update
+          sudo docker-compose exec -T wordpress wp theme activate twentyseventeen
+          sudo docker-compose exec -T wordpress wp language theme install twentyseventeen fr_FR
+          sudo docker-compose exec -T wordpress wp theme update --all
+          sudo docker-compose exec -T wordpress wp plugin update --all
+          sudo docker-compose exec -T wordpress wp plugin install amazon-s3-and-cloudfront --activate
+# stress --cpu 80 --io 4 --vm 2 --vm-bytes 128M --timeout 400s
+#------ Nous allons dire a amazon de creer plusieurs machines à 
+#------ partir de notre LaunchConfiguration ("patron") en creant l' AutoScalingGroup        
+  BenitcheScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchConfigurationName: !Ref BenitcheLaunchConfig
+      AutoScalingGroupName: MonGroupeAutoScalingWeb
+      AvailabilityZones:
+        - Fn::Select:
+          - 0
+          - Fn::GetAZs: !Ref AWS::Region
+        - Fn::Select:
+          - 1
+          - Fn::GetAZs: !Ref AWS::Region
+      VPCZoneIdentifier:
+        - !Ref BenitchePublicA
+        - !Ref BenitchePublicB
+      DesiredCapacity: 2
+      MaxSize: 6
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref BenitcheTargetGroup
+      NotificationConfigurations:
+      - TopicARN: !Ref SnsTopic
+        NotificationTypes:
+        - autoscaling:EC2_INSTANCE_LAUNCH
+      Tags:
+        - Key: Environment
+          Value: Production
+          PropagateAtLaunch: "true"
+        - Key: Purpose
+          Value: WebServerGroup
+          PropagateAtLaunch: "false"
+#------ PARTIE 6 : Equilibreur de charge, Target group ------   
+#--- On cree le TargetGroup qui represente le groupe de machines qui sera 
+#--- cible par le LoadBalancer. Il permet aux requetes d'etre correctement dirigees.
+  BenitcheTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref BenitcheVPC
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+#------ On met le load balancer face internet car c'est lui qui recevra les requetes exterieures.
+#------ Son role est de diriger le trafic reseau vers la ou les machines disponibles, et de relayer les reponses
+  BenitcheLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: application
+      Name: BenitcheLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref BenitcheLoadBalancerSecurityGroup
+      Subnets:
+        - !Ref BenitchePublicA
+        - !Ref BenitchePublicB
+#------ On ajoute un groupe de securite en sortie et en entree pour ouvrir le trafic
+  BenitcheLoadBalancerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: DockerWordpress LoadBalancer security group
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: BenitcheLoadBalancerSecurityGroup
+#------ On ajoute un Listener au LoadBalancer car c'est lui qui permet de recevoir 
+#------ le trafic en entree du LoadBalancer (equilibreur de charge).
+  BenitcheLoadBlancerListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref BenitcheLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref BenitcheTargetGroup
+#------ RDS ------
+#--- Creation Instance base de donnee Master et Replica
+  DockerWordpressMaster:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllocatedStorage: 20
+      BackupRetentionPeriod: 7
+      DBInstanceClass: db.t2.micro
+      AllowMajorVersionUpgrade: true
+      AutoMinorVersionUpgrade: true
+      Engine: MySQL
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      EngineVersion: 5.7
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      Port: 3306
+      DBInstanceIdentifier: DockerWordpressMaster
+      DBSubnetGroupName: !Ref BenitcheDBSousReseau
+      PubliclyAccessible: false      
+      DBName: !Ref DBName
+      VPCSecurityGroups:
+      - Fn::GetAtt: [WordpressRDSSecurityGroup, GroupId]
+      Tags:
+        - Key: Name
+          Value: DockerWordpressMaster
+  #--------- Serveur base de donnée Replica       
+  DockerWordpressReplica:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: DockerWordpressReplica
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      SourceDBInstanceIdentifier: !Ref DockerWordpressMaster     
+      Tags:
+        - Key: Name
+          Value: DockerWordpressReplica
+#------ Creation du client VPN ------          
+  BenitcheClientVPN:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      Monitoring: true
+      NetworkInterfaces: 
+      - AssociatePublicIpAddress: "true"
+        DeviceIndex: "0"
+        GroupSet:
+          - !Ref SSHSecurityGroup
+          - !Ref VPNSecurityGroup 
+        SubnetId: 
+          !Ref BenitcheIntranet
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      KeyName: MyNetworkKey
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo su
+          apt-get update && sudo apt-get upgrade -y
+          cat >> /etc/sysctl.conf << EOF
+          net.ipv4.ip_forward = 1
+          net.ipv6.conf.all.forwarding = 1
+          EOF
+          sysctl -p /etc/sysctl.conf
+          apt-get install strongswan libcharon-extra-plugins strongswan-pki -y
+          ipsec pki --gen --size 4096 --type rsa --outform pem > ca.key.pem
+          ipsec pki --self --in ca.key.pem --type rsa --dn "CN=VPN Server CA" --ca --lifetime 3650 --outform pem > ca.cert.pem
+          ipsec pki --gen --size 4096 --type rsa --outform pem > server.key.pem
+          ipsec pki --pub --in server.key.pem --type rsa | ipsec pki --issue --lifetime 2750 --cacert ca.cert.pem --cakey ca.key.pem --dn "CN=18.134.226.162" --san="18.134.226.162" --flag serverAuth --flag ikeIntermediate --outform pem > server.cert.pem
+          mv ca.cert.pem /etc/ipsec.d/cacerts/
+          mv server.cert.pem /etc/ipsec.d/certs/
+          mv ca.key.pem /etc/ipsec.d/private/
+          mv server.key.pem /etc/ipsec.d/private/
+          mv /etc/ipsec.conf /etc/ipsec.conf.save
+          cat >> /etc/ipsec.conf << EOF
+          config setup
+                charondebug="ike 2, knl 2, cfg 2, net 2, esp 2, dmn 2, mgr 2"
+                strictcrlpolicy=no
+                uniqueids=yes 
+                cachecrls=no
+
+          conn ipsec-ikev2-vpn 
+                auto=add 
+                compress=no
+                type=tunnel  
+                keyexchange=ikev2 
+                fragmentation=yes
+                forceencaps=yes
+                dpdaction=clear 
+                dpddelay=300s
+                rekey=no
+                left=${IPElasticIntranet} 
+                leftid=18.134.226.162 
+                leftcert=server.cert.pem
+                leftsendcert=always
+                leftsubnet=${BenitcheIntranet} 
+                right=${IPPublicDistant} 
+                rightid=${IPPublicDistant}
+                rightsubnet=${ReseauLocalDistant}
+                rightauth=eap-mschapv2
+                rightsourceip=192.168.0.0/16  
+                rightdns=8.8.8.8,8.8.4.4 
+                rightsendcert=never
+                eap_identity=%identity         
+          EOF
+          cat >> /etc/ipsec.secrets << EOF
+          : RSA "server.key.pem"
+          .vpnsecure : EAP "P@$$w0rdEd10"
+          EOF
+          systemctl restart strongswan
+          systemctl enable strongswan
+          cat > /etc/rc.local << EOF
+          #! /bin/bash
+          echo 1 > /proc/sys/net/ipv4/ip_forward
+          iptables -t nat -A POSTROUTING -s 10.0.10.0/24 -o eth0 -m policy --dir out --pol ipsec -j ACCEPT
+          iptables -t nat -A POSTROUTING -s 10.0.10.0/24 -o eth0 -j MASQUERADE
+          iptables -t nat -I POSTROUTING -m policy --pol ipsec --dir out -j ACCEPT
+          iptables -A INPUT -p UDP --dport 500 -j ACCEPT
+          iptables -A INPUT -p UDP --dport 4500 -j ACCEPT
+          exit 0
+          EOF
+          chmod 755 /etc/rc.local
+          systemctl enable --now strongswan.service
+          ipsec reload
+      Tags:
+        - Key: Name
+          Value: BenitcheClientVPN
+        - Key: Owner
+          Value:
+            Ref: Owner
+        - Key: Project
+          Value:
+            Ref: Project
+#------ PARTIE 5 : CloudWatch ------
+#--- Creation alarme pour alerte une augmentation ou baisse des capacites du CPU, Creation ScaleUpPolicy, les alertes email
+#
+#------ Creation des alertes email
+  SnsTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      Subscription:
+        - Endpoint: !Ref AdresseEmail 
+          Protocol: email
+      TopicName: SnsTopic
+#------ Politique d'alerte pour une augmentation du cpu
+  ScaleUpPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref BenitcheScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: 1
+#------ Creation alarme CloudWatch pour alerter une augmentation du cpu
+  HighCpuUsageAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Average
+      Threshold: 80
+      AlarmDescription: Declenche une alarme si le CPU est superieur a 80% pendant 5 minutes
+      Period: 300
+      AlarmActions: 
+        - !Ref SnsTopic
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: AutoScalingGroupName 
+          Value: !Ref BenitcheScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: UtilisationCPUEleve
+#------ Politique d'alerte pour une baisse du cpu
+  ScaleDownPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref BenitcheScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: -1
+#------ Creation alarme CloudWatch pour alerter une baisse du cpu
+  LowCpuUsageAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Average
+      Threshold: 70
+      AlarmDescription: Declenche une alarme si le CPU est inferieur a 70% pendant 5 minutes
+      Period: 300
+      AlarmActions: 
+        - !Ref SnsTopic
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: AutoScalingGroupName 
+          Value: !Ref BenitcheScalingGroup
+      ComparisonOperator: LessThanThreshold
+      MetricName: UtilisationCPUBasse
+#---- PARTIE 6 : Creation du Bucket S3
+  BenitcheBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+      BucketName: benitchebucket
+    DependsOn: BenitcheVPC
+ 
+Outputs:
+  URL:
+    Description: L'URL pour l'acces web de wordpress
+    Value: !Join [ "", [ "http://", !GetAtt BenitcheLoadBalancer.DNSName, ":80" ] ]
+  Notes:
+    Description: On recupere l'URL pour acceder au site.
+    Value: Commentaires
+    
