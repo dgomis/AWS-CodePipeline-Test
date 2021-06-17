@@ -340,7 +340,7 @@ Resources:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     DependsOn: BenitcheLoadBalancer
     Properties:
-      AssociatePublicIpAddress: true
+      AssociatePublicIpAddress: 'true'
       InstanceMonitoring: true     
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: t2.micro
@@ -488,8 +488,8 @@ Resources:
       AllocatedStorage: 20
       BackupRetentionPeriod: 7
       DBInstanceClass: db.t2.micro
-      AllowMajorVersionUpgrade: true
-      AutoMinorVersionUpgrade: true
+      AllowMajorVersionUpgrade: 'true'
+      AutoMinorVersionUpgrade: 'true'
       Engine: MySQL
       AvailabilityZone: !Select
         - 0
@@ -525,7 +525,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t2.micro
-      Monitoring: true
+      Monitoring: 'true'
       NetworkInterfaces: 
       - AssociatePublicIpAddress: "true"
         DeviceIndex: "0"
