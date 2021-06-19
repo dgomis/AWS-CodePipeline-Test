@@ -1,18 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   AWS CloudFormation infrastructure Template
-Parameters:
-  VpcIdentifier:
-    Type: String
-    Description: The target VPC identifier.
-  AmiIdentifier:
-    Type: String
-    Description: The AMI identifier to deploy.
-  PublicSubnets:
-    Type: CommaDelimitedList
-    Description: The list of subnets where we would like to deploy the instances.
 Resources:
-  WebsiteEC2SecurityGroup:
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Website EC2 security group 
@@ -25,14 +15,14 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
       VpcId: !Ref VpcIdentifier
-  WebsiteLaunchConfig:
+  WebLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
       AssociatePublicIpAddress: false
       ImageId: !Ref AmiIdentifier
       InstanceType: t2.micro
       SecurityGroups:
-        - !Ref WebsiteEC2SecurityGroup
+        - !Ref WebSecurityGroup
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -54,19 +44,19 @@ Resources:
       MinSize: 1
       TargetGroupARNs:
         - !Ref WebsiteTargetGroup
-  WebsiteTargetGroup:
+  WebTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VpcIdentifier
-  WebsiteLoadBalancer:
+  WebLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Type: application
       Scheme: internet-facing
       SecurityGroups:
-        - !Ref WebsiteLoadBalancerSecurityGroup
+        - !Ref WebLoadBalancerSecurityGroup
       Subnets: !Ref PublicSubnets
   WebsiteLoadBalancerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -84,9 +74,9 @@ Resources:
   WebsiteLoadBlancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties: 
-      LoadBalancerArn: !Ref WebsiteLoadBalancer
+      LoadBalancerArn: !Ref WebLoadBalancer
       Port: 80
       Protocol: HTTP
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref WebsiteTargetGroup
+          TargetGroupArn: !Ref WebTargetGroup
