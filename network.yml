@@ -381,3 +381,5 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref VPCInternetGateway
       RouteTableId: !Ref PublicRouteTableC    
+
+
