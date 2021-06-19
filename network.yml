@@ -18,9 +18,9 @@ Parameters:
     Type: String
     Default: D. GOMIS
   Project:
-    Description: Entrer le nom du project
+    Description: Renseigner le nom du project
     Type: String
-    Default: Maitrisez votre infrastructure cloud
+    Default: Utilisation de AWS CodePipeline pour deployer des piles avec CloudFormation
   VpcCidrBlock:
     Type: String
     MinLength: '11'
@@ -29,7 +29,7 @@ Parameters:
     Description: Renseigner le block cidr du reseau VPC
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
-  ReseauLocalDistant:
+  VPN:
     Description: Entrer la Plage d'adresses IP du reseau distant
     Type: String
     MinLength: '11'
@@ -110,7 +110,7 @@ Resources:
       AvailabilityZone: !Select
         - 0
         - Fn::GetAZs: !Ref 'AWS::Region'
-      CidrBlock: !Select [ 0, !Cidr [ !GetAtt BenitcheVPC.CidrBlock, 1, 8 ]]
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt InfraVPC.CidrBlock, 1, 8 ]]
       Tags:
         - Key: Name
           Value: 'PrivateSubnetA'
@@ -175,21 +175,21 @@ Resources:
       - Key: Name
         Value: 'PublicSubnetC'
       VpcId: !Ref InfraVPC
-      CidrBlock: !Select [ 101, !Cidr [ !GetAtt InfraVPC.CidrBlock, 102, 8 ]]
+      CidrBlock: !Select [ 102, !Cidr [ !GetAtt InfraVPC.CidrBlock, 103, 8 ]]
 #------ Creation de la passerelle de sortie internet pour pouvoir rendre trois sous-réseaux   
 #------ des différentes zones A, B et C publics et les faire communiquer avec le VPC
-  InternetGateway:
+  VPCInternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
         - Key: Name
-          Value: 'InfraVPC-InternetGateway'
+          Value: 'VPCInternetGateway'
 #------ On associe la passerelle Internet creee au VPC
   AttachInternetGateway:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       VpcId: !Ref InfraVPC
-      InternetGatewayId: !Ref InternetGateway
+      InternetGatewayId: !Ref VPCInternetGateway
 #------ Creation des adresses IP Elastiques (adresses IPv4 publiques accessibles depuis
 #------ Internet) qui seront associees aux passerelles Nat des sous-reseaux prives
 #
@@ -242,7 +242,7 @@ Resources:
     DependsOn: AttachInternetGateway
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt NatEipB.AllocationId
+      AllocationId: !GetAtt NatEipC.AllocationId
       SubnetId: !Ref PrivateSubnetC
       Tags:
         - Key: Name
@@ -363,7 +363,7 @@ Resources:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId: !Ref VPCInternetGateway
       RouteTableId: !Ref PublicRouteTableA
 #------ Creation de la route pour rooter le trafic depuis toutes 
 #------ les IP du sous-reseau prive vers sa passerelle Nat
@@ -371,7 +371,7 @@ Resources:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId: !Ref VPCInternetGateway
       RouteTableId: !Ref PublicRouteTableB
 #------ Creation de la route pour rooter le trafic depuis toutes 
 #------ les IP du sous-reseau prive vers sa passerelle Nat
@@ -379,8 +379,5 @@ Resources:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId: !Ref VPCInternetGateway
       RouteTableId: !Ref PublicRouteTableC    
-
-
-
