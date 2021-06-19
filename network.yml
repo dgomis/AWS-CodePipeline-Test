@@ -1,441 +1,353 @@
 AWSTemplateFormatVersion: 2010-09-09
-#--DESCRIPTION
-# exmeple script AIC - Projet 10                    
-# Vincent ARSENE  
-Description: AWS ClouDFormation VPC Template
-#----PARTIE 1 : VPC et sous-reseaux
-#------Creation du VPC openclassrooms
+Description: >-
+  Ce template deploie un VPC avec la creation de sous-reseaux repartis dans plusieurs zones de disponibilite, ...                 
+#
+#........ Dacky GOMIS ........#####
+#
+Mappings: 
+  RegionMap: 
+    eu-west-3:
+      AMI: "ami-089d839e690b09b28"
+    eu-west-2:
+      AMI: "ami-0e169fa5b2b2f88ae"
+    eu-west-1:
+      AMI: "ami-0dc8d444ee2a42d8a"
+Parameters:
+  Owner:
+    Description: Renseigner le nom du createur du template
+    Type: String
+    Default: Dacky GOMIS
+  Project:
+    Description: Entrer le nom du project
+    Type: String
+    Default: Maitrisez votre infrastructure cloud
+  VpcCidrBlock:
+    Type: String
+    MinLength: '11'
+    MaxLength: '18'
+    Default: 10.0.0.0/16
+    Description: Renseigner le block cidr du reseau VPC
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
+  ReseauLocalDistant:
+    Description: Entrer la Plage d'adresses IP du reseau distant
+    Type: String
+    MinLength: '11'
+    MaxLength: '18'
+    Default: 172.0.0.0/16
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
+    ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
+  IPPublicDistant:
+    Description: Ip public du client distant
+    Type: String
+    ConstraintDescription: Renseigner l'IP du client autorise a se connecter au serveur
+  AdresseEmail:
+    Description: Adresse mail de contact
+    Type: String
+    ConstraintDescription: Renseigner l'adresse mail de contact pour les alertes mails
+  DBName:
+    Default: wordpressdb
+    Description: Ma base de donnee
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  DBUsername:
+    NoEcho: 'true'
+    Description: L'utilisateur autorise a acceder a la BDD
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  DBPassword:
+    NoEcho: 'true'
+    Description: Mot de passe pour l'acces a la BDD
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
+  WPAdminUsername:
+    NoEcho: 'true'
+    Description: L'utilisateur autorise a acceder a l'interface wordpress 
+    Type: String
+    MinLength: '1'
+    MaxLength: '16'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
+  WpAdminPassword:
+    NoEcho: 'true'
+    Description: Mot de passe pour l'acces web de wordpress
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
+#---- PARTIE RESEAU : VPC et sous-reseaux ------
+#------ Création du VPC avec son block CIDR ------
 Resources:
-  openclassroomsVPC:
+  InfraVPC:
     Type: 'AWS::EC2::VPC'
     Properties:
-      EnableDnsHostnames: true
-      CidrBlock: 10.10.0.0/16
+      EnableDnsHostnames: 'true'
+      CidrBlock: !Ref VpcCidrBlock
       Tags:
         - Key: Name
-          Value: openclassrooms
-#------ Creation du sous reseaux prive openclassrooms-intranet
-  intranet:
+          Value: InfraVPC
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Project
+          Value: !Ref Project
+#------ Creation de trois sous-reseaux prives dans les zones A, B et C
+#------ Creation du sous-reseau prive de la zone A
+  PrivateSubnetA:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone:  us-east-2c
-      CidrBlock: 10.10.1.0/24
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt BenitcheVPC.CidrBlock, 1, 8 ]]
       Tags:
         - Key: Name
-          Value: 'openclassrooms-intranet'
-      VpcId: !Ref openclassroomsVPC
-#------ Creation de deux sous reseaux public identiquent pour
-#------ la haute dispinibilite openclassrooms-wordpress-A et 
-#------ openclassrooms-wordpress-B
-  wordpressA:
+          Value: 'PrivateSubnetA'
+      VpcId: !Ref InfraVPC
+#------ Creation du sous-reseau prive de la zone B
+  PrivateSubnetB:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone:  us-east-2a
-      CidrBlock: 10.10.2.0/24
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
       Tags:
-        - Key: Name
-          Value: 'openclassrooms-wordpress-A'
-      VpcId: !Ref openclassroomsVPC
-  wordpressB:
+      - Key: Name
+        Value: 'PrivateSubnetB'
+      VpcId: !Ref InfraVPC
+      CidrBlock: !Select [ 1, !Cidr [ !GetAtt InfraVPC.CidrBlock, 2, 8 ]]
+#------ Creation du sous-reseau prive de la zone C
+  PrivateSubnetC:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone:  us-east-2b
-      CidrBlock: 10.10.3.0/24
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: 'PrivateSubnetC'
+      VpcId: !Ref InfraVPC
+      CidrBlock: !Select [ 2, !Cidr [ !GetAtt InfraVPC.CidrBlock, 3, 8 ]]
+#------ Creation de trois sous-reseaux publics identiquent pour
+#------ la haute disponibilite des serveurs dans les zones A, B et C
+  PublicSubnetA:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: !Select [ 100, !Cidr [ !GetAtt InfraVPC.CidrBlock, 101, 8 ]]
       Tags:
         - Key: Name
-          Value: 'openclassrooms-wordpress-B'
-      VpcId: !Ref openclassroomsVPC
-#------ Passerelle et NAT
-#-------- Creation de la passerelle internet
+          Value: 'PublicSubnetA'
+      VpcId: !Ref InfraVPC
+#------Creation du sous-reseau public de la zone B
+  PublicSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: 'PublicSubnetB'
+      VpcId: !Ref InfraVPC
+      CidrBlock: !Select [ 101, !Cidr [ !GetAtt InfraVPC.CidrBlock, 102, 8 ]]
+#------Creation du sous-reseau public de la zone C
+  PublicSubnetC:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select
+        - 2
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+      - Key: Name
+        Value: 'PublicSubnetC'
+      VpcId: !Ref InfraVPC
+      CidrBlock: !Select [ 101, !Cidr [ !GetAtt InfraVPC.CidrBlock, 102, 8 ]]
+#------ Creation de la passerelle internet pour faire 
+#------ communiquer le VPC et les sous-reseaux publics
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
         - Key: Name
-          Value: 'openclassrooms-InternetGateway'
-#-------- Attachement de la passerelle internet
+          Value: 'InfraVPC-InternetGateway'
+#------ On associe la passerelle Internet creee au VPC
   AttachInternetGateway:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
-      VpcId: !Ref openclassroomsVPC
+      VpcId: !Ref InfraVPC
       InternetGatewayId: !Ref InternetGateway
-#-------- Mise en place de la nat pour le sous-reseau priveIntranet
-#---------- D'abord creation d'un ip elastique
-  NatEipIntranet:
-    Type: 'AWS::EC2::EIP'
-    Properties:
-      Domain: vpc
-#---------- Creation de la nat
-  NatGatewayIntranet:
-    DependsOn: AttachInternetGateway
-    Type: 'AWS::EC2::NatGateway'
-    Properties:
-      AllocationId: 
-        Fn::GetAtt: 
-        - NatEipIntranet 
-        - AllocationId
-      SubnetId:
-        Ref: intranet
-      Tags:
-       - Key: Name
-         Value: 'openclassrooms-nat-intranet'
-#---- Tables de routage        
-#------ Creation de la table pour le reseau prive openclassrooms-intranet
-#-------- Creation 
-  RouteTableIntranet:
-    Type: 'AWS::EC2::RouteTable'
-    Properties:
-      VpcId: !Ref openclassroomsVPC
-      Tags:
-       - Key: Name
-         Value: openclassrooms-route-intranet
-#-------- Attachement
-  AttachRouteTableIntranet:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
-    Properties:
-      RouteTableId: !Ref RouteTableIntranet
-      SubnetId: !Ref intranet
-#-------- Configuration
-  RouteIntranet:
-    Type: 'AWS::EC2::Route'
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref RouteTableIntranet
-#------ Creation de la table pour le reseau public wordpressA
-#-------- Creation 
-  RouteTableWordpressA:
-    Type: 'AWS::EC2::RouteTable'
-    Properties:
-      VpcId: !Ref openclassroomsVPC
-      Tags:
-       - Key: Name
-         Value: openclassrooms-route-wordpressA
-#-------- Attachement
-  AttachRouteTableWordpressA:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
-    Properties:
-      RouteTableId: !Ref RouteTableWordpressA
-      SubnetId: !Ref wordpressA
-#-------- Configuration
-  RouteWordpressA:
-    Type: 'AWS::EC2::Route'
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref RouteTableWordpressA
-#------ Creation de la table pour le reseau public wordpressB
-#-------- Creation 
-  RouteTableWordpressB:
-    Type: 'AWS::EC2::RouteTable'
-    Properties:
-      VpcId: !Ref openclassroomsVPC
-      Tags:
-       - Key: Name
-         Value: openclassrooms-route-wordpressB
-#-------- Attachement
-  AttachRouteTableWordpressB:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
-    Properties:
-      RouteTableId: !Ref RouteTableWordpressB
-      SubnetId: !Ref wordpressB
- #-------- Configuration
-  RouteWordpressB:
-    Type: 'AWS::EC2::Route'
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
-      RouteTableId: !Ref RouteTableWordpressB
-#---- PARTIE 2 : RDS
-#------Security Group RDS
-  WordpressDBSubnet:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: my db subnet group
-      SubnetIds:
-        - !Ref wordpressA
-        - !Ref wordpressB
-#------ Security Group RDS
-  WordpressRDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Open database for access
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 3306
-        ToPort: 3306
-        CidrIp: 10.10.0.0/16
-      VpcId: !Ref openclassroomsVPC      
-#---- PARTIE 3 : Machines   
-#------ Security Group EC2    
-  WordpressEC2SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Wordpress EC2 security group
-      SecurityGroupIngress:
-       - IpProtocol: tcp
-         FromPort: 80
-         ToPort: 80
-         CidrIp: 0.0.0.0/0
-       - IpProtocol: tcp
-         FromPort: 22
-         ToPort: 22
-         CidrIp: 0.0.0.0/0
-      VpcId: !Ref openclassroomsVPC
-#---- PARTIE 4 : AutoScaling
-#------ Launch Configuration
-  WordpressLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      AssociatePublicIpAddress: True
-      ImageId: ami-00c5940f2b52c5d98
-      InstanceType: t2.micro
-      SecurityGroups:
-      - !Ref WordpressEC2SecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum -y update
-          yum -y install httpd
-          systemctl start httpd         
-          dnf makecache
-          dnf install dnf-utils wget vim nano device-mapper-persistent-data lvm2 fuse-overlayfs -y
-          dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-          dnf makecache
-          cd /tmp/
-          wget -P /tmp/ https://download.docker.com/linux/centos/7/x86_64/stable/Packages/containerd.io-1.2.13-3.1.el7.x86_64.rpm
-          dnf localinstall /tmp/containerd.io-1.2.13-3.1.el7.x86_64.rpm -y
-          dnf install docker-ce -y
-          systemctl start docker
-          systemctl enable docker          
-          mkdir  ~/wp-docker && cd ~/wp-docker
-          touch benitche-docker.yml
-          yum install -y elrepo-release epel-release
-          yum install kmod-wireguard wireguard-tools
-          wg genkey | tee wg-private.key | wg pubkey > wg-public.key  
-#------ Creation AutoScalingGroup
-  WordpressScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      LaunchConfigurationName: !Ref WordpressLaunchConfig
-      AvailabilityZones:
-       - Fn::Select:
-         - 0
-         - Fn::GetAZs: !Ref AWS::Region
-       - Fn::Select:
-         - 1
-         - Fn::GetAZs: !Ref AWS::Region
-      VPCZoneIdentifier: 
-        - !Ref wordpressA
-        - !Ref wordpressB     
-      DesiredCapacity: 2
-      MinSize: 2
-      MaxSize: 4
-      TargetGroupARNs:
-        - !Ref WordpressTargetGroup
-      NotificationConfigurations:
-      - TopicARN: !Ref SnsTopic
-        NotificationTypes:
-        - autoscaling:EC2_INSTANCE_LAUNCH
-#---- PARTIE 2 : RDS
-#------Security Group RDS
-#------Creation du groupe de sous-reseaux pour l'instance DB
-#------Groupe de securite RDS
-  DockerWordpressRDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Acces distant a la base de donne
-      SecurityGroupIngress:
-      - IpProtocol: tcp
-        FromPort: 3306
-        ToPort: 3306
-        CidrIp: 10.10.0.0/16
-      VpcId: !Ref openclassroomsVPC
-      Tags:
-        - Key: Name
-          Value: DockerWordpressRDSSecurityGroup
-#------Creation Instance base de donnee Master
-  DockerWordpress:
-    Type: "AWS::RDS::DBInstance"
-    Properties:
-      AllocatedStorage: 20
-      BackupRetentionPeriod: 7
-      DBInstanceClass: db.t2.micro
-      AllowMajorVersionUpgrade: true
-      AutoMinorVersionUpgrade: true
-      Engine: MySQL
-      EngineVersion: 8.0.17
-      MasterUsername: DocWorUser
-      MasterUserPassword: DocWorPwd
-      Port: 3306
-      MultiAZ: true
-      DBInstanceIdentifier: DockerWordpress
-      DBSubnetGroupName: !Ref WordpressDBSubnet
-      PubliclyAccessible: false      
-      DBName: DockerWordpressBd
-      VPCSecurityGroups:
-      - Fn::GetAtt: [WordpressRDSSecurityGroup, GroupId]      
-      Tags:
-        - Key: Name
-          Value: DockerWordpress
-#---- PARTIE 5 : CloudWatch
-#------ Alarme Augmentation des capacites
-#-------- Creation ScaleUpPolicy
+#------ Creation des adresses IP Elastiques (adresses IPv4 publiques,accessibles 
+#------ depuis Internet) qui seront associees aux passerelles Nat des sous-reseaux prives a creer
 #
-#------Creation alerte email
-  SnsTopic:
-    Type: AWS::SNS::Topic
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone A a creer
+  NatEipA:
+    Type: AWS::EC2::EIP
     Properties:
-      Subscription:
-        - Endpoint: oupasbenith@gmail.com
-          Protocol: email
-#------Politique d'augmentation cpu
-  ScaleUpPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
+      Tags:
+        - Key: Name
+          Value: NatEipA
+      Domain: vpc
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone B a creer 
+  NatEipB:
+    Type: AWS::EC2::EIP
     Properties:
-      AdjustmentType: ChangeInCapacity
-      AutoScalingGroupName: !Ref WordpressScalingGroup
-      Cooldown: 1
-      ScalingAdjustment: 1
-#------Creation Alarme CloudWatch pour augmentation du CPU
-  HighCpuUsageAlarm:
-    Type: AWS::CloudWatch::Alarm
+      Tags:
+        - Key: Name
+          Value: NatEipB
+      Domain: vpc
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone C a creer
+  NatEipC:
+    Type: AWS::EC2::EIP
     Properties:
-      EvaluationPeriods: 1
-      Statistic: Average
-      Threshold: 80
-      AlarmDescription: Alarm CPU de mon instance
-      Period: 300
-      AlarmActions: 
-      - Ref: ScaleUpPolicy
-      - Ref: SnsTopic
-      Namespace: AWS/EC2
-      Dimensions:
-      - Name: AutoScalingGroupName 
-        Value:
-          Ref: WordpressScalingGroup
-      ComparisonOperator: GreaterThanThreshold
-      MetricName: UtilisationCPUEleve
-#------Creation politique de réduction cpu
-  ScaleDownPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
+      Tags:
+        - Key: Name
+          Value: NatEipC
+      Domain: vpc
+#------ Creation de la passerelle Nat pour le sous-reseau prive de la zone A
+  NatGatewayA:
+    DependsOn: AttachInternetGateway
+    Type: AWS::EC2::NatGateway
     Properties:
-      AdjustmentType: ChangeInCapacity
-      AutoScalingGroupName: !Ref WordpressScalingGroup
-      Cooldown: 1
-      ScalingAdjustment: -1
-#------Baisse de CPU      
-  LowCpuUsageAlarm:
-    Type: AWS::CloudWatch::Alarm
+      AllocationId: !GetAtt NatEipA.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: NatGatewayA
+#------ Creation de la passerelle Nat pour le sous-reseau prive de la zone B          
+  NatGatewayB:
+    DependsOn: AttachInternetGateway
+    Type: AWS::EC2::NatGateway
     Properties:
-      EvaluationPeriods: 1
-      Statistic: Average
-      Threshold: 1
-      AlarmDescription: Alarm CPU de mon instance
-      Period: 300
-      AlarmActions: 
-      - Ref: ScaleDownPolicy
-      - Ref: SnsTopic
-      Namespace: AWS/EC2
-      Dimensions:
-      - Name: AutoScalingGroupName 
-        Value:
-          Ref: WordpressScalingGroup
-      ComparisonOperator: GreaterThanThreshold
-      MetricName: UtilisationCPUBasse
-#---- PARTIE 5 : CloudWatch
-#------ Alarme Augmentation des capacites
-#-------- Creation ScaleUpPolicy
-  ScaleUpPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
+      AllocationId: !GetAtt NatEipB.AllocationId
+      SubnetId: !Ref PublicSubnetB
+      Tags:
+        - Key: Name
+          Value: NatGatewayB
+#------ Creation de la passerelle Nat pour le sous-reseau prive de la zone C        
+  NatGatewayC:
+    DependsOn: AttachInternetGateway
+    Type: AWS::EC2::NatGateway
     Properties:
-      AdjustmentType: ChangeInCapacity
-      AutoScalingGroupName: !Ref WordpressScalingGroup
-      Cooldown: 1
-      ScalingAdjustment: 1
-#-------- Creation Alarme CloudWatch
-  CPUAlarmeHight:
-    Type: AWS::CloudWatch::Alarm
+      AllocationId: !GetAtt NatEipB.AllocationId
+      SubnetId: !Ref PublicSubnetB
+      Tags:
+        - Key: Name
+          Value: NatGatewayC
+#------ TABLES DE ROUTAGE ------
+#
+#------ Creation de la table de routage pour le sous-reseau prive de la zone A 
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
     Properties:
-      EvaluationPeriods: 1
-      Statistic: Average
-      Threshold: 80
-      AlarmDescription: Declenche une alarme si le CPU est trop utilise
-      Period: 300
-      AlarmActions:
-      - Ref: ScaleUpPolicy
-      Namespace: AWS/EC2
-      Dimensions:
-      - Name: AutoScalingGroupName
-        Value: !Ref WordpressScalingGroup
-      ComparisonOperator: GreaterThanThreshold
-      MetricName: CPUUtilization
-#------ Alarme Diminution des capacites
-#-------- Creation ScaleUpPolicy
-  ScaleUpPolicy2:
-    Type: AWS::AutoScaling::ScalingPolicy
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTableA
+#------ On associe la table de routage au sous-reseau prive 
+  AttachPrivateRouteTableA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      AdjustmentType: ChangeInCapacity
-      AutoScalingGroupName: !Ref WordpressScalingGroup
-      Cooldown: 1
-      ScalingAdjustment: -1
-#-------- Creation Alarme CloudWatch
-  CPUAlarmeHight2:
-    Type: AWS::CloudWatch::Alarm
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA
+#------ Creation de la table de routage pour le sous-reseau prive de la zone B
+  PrivateRouteTableB:
+    Type: AWS::EC2::RouteTable
     Properties:
-      EvaluationPeriods: 1
-      Statistic: Average
-      Threshold: 1
-      AlarmDescription: Declenche une alarme si le CPU est trop utilise
-      Period: 300
-      AlarmActions:
-      - Ref: ScaleUpPolicy2
-      Namespace: AWS/EC2
-      Dimensions:
-      - Name: AutoScalingGroupName
-        Value: !Ref WordpressScalingGroup
-      ComparisonOperator: GreaterThanThreshold
-      MetricName: CPUUtilization
-#---- PARTIE 6 : Equilibreur de charge   
-#------ Target group
-  WordpressTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTableB
+#------ On associe la table de routage au sous-reseau prive 
+  AttachPrivateRouteTableB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      Port: 80
-      Protocol: HTTP
-      VpcId: !Ref openclassroomsVPC
-#------ ELB 
-  WordpressLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref PrivateSubnetB
+#------ Creation de la table de routage pour le sous-reseau prive de la zone C
+  PrivateRouteTableC:
+    Type: AWS::EC2::RouteTable
     Properties:
-      Type: application
-      Scheme: internet-facing
-      SecurityGroups:
-        - !Ref WordpressLoadBalancerSecurityGroup
-      Subnets:
-        - !Ref wordpressA
-        - !Ref wordpressB
-#------ Security Group EC2   
-  WordpressLoadBalancerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTableC
+#------ On associe la table de routage au sous-reseau prive 
+  AttachPrivateRouteTableC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      GroupDescription: Wordpress EC2 security group
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      VpcId: !Ref openclassroomsVPC
-#------ ELB Ecoute 
-  WordpressLoadBalancerListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
+      RouteTableId: !Ref PrivateRouteTableB
+      SubnetId: !Ref PrivateSubnetB
+  PublicRouteTableA:
+    Type: AWS::EC2::RouteTable
     Properties:
-      LoadBalancerArn: !Ref WordpressLoadBalancer
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref WordpressTargetGroup      
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTableA
+  AttachPublicRouteTableA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableA
+      SubnetId: !Ref PublicSubnetA
+  PublicRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTableB
+  AttachPublicRouteTableB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableB
+      SubnetId: !Ref PublicSubnetB 
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+      RouteTableId: !Ref PrivateRouteTableA
+  PrivateRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB
+      RouteTableId: !Ref PrivateRouteTableB
+  PrivateRouteC:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayC
+      RouteTableId: !Ref PrivateRouteTableC
+  PublicRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableA
+  PublicRouteB:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableB
+  PublicRouteC:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableC    
