@@ -85,7 +85,8 @@ Parameters:
     MaxLength: '41'
     AllowedPattern: '[a-zA-Z0-9]*'
     ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
-#---- PARTIE RESEAU : VPC et sous-reseaux ------
+#---- PARTIE RESEAU : VPC et sous-reseaux 
+#
 #------ Création du VPC avec son block CIDR ------
 Resources:
   InfraVPC:
@@ -101,6 +102,7 @@ Resources:
         - Key: Project
           Value: !Ref Project
 #------ Creation de trois sous-reseaux prives dans les zones A, B et C
+#
 #------ Creation du sous-reseau prive de la zone A
   PrivateSubnetA:
     Type: 'AWS::EC2::Subnet'
@@ -137,8 +139,8 @@ Resources:
         Value: 'PrivateSubnetC'
       VpcId: !Ref InfraVPC
       CidrBlock: !Select [ 2, !Cidr [ !GetAtt InfraVPC.CidrBlock, 3, 8 ]]
-#------ Creation de trois sous-reseaux publics identiquent pour
-#------ la haute disponibilite des serveurs dans les zones A, B et C
+#------ Creation de trois sous-reseaux publics identiquent pour la
+#------ haute disponibilite des serveurs dans les zones A, B et C
   PublicSubnetA:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -150,7 +152,7 @@ Resources:
         - Key: Name
           Value: 'PublicSubnetA'
       VpcId: !Ref InfraVPC
-#------Creation du sous-reseau public de la zone B
+#------ Creation du sous-reseau public de la zone B
   PublicSubnetB:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -162,7 +164,7 @@ Resources:
         Value: 'PublicSubnetB'
       VpcId: !Ref InfraVPC
       CidrBlock: !Select [ 101, !Cidr [ !GetAtt InfraVPC.CidrBlock, 102, 8 ]]
-#------Creation du sous-reseau public de la zone C
+#------ Creation du sous-reseau public de la zone C
   PublicSubnetC:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -189,7 +191,7 @@ Resources:
       VpcId: !Ref InfraVPC
       InternetGatewayId: !Ref InternetGateway
 #------ Creation des adresses IP Elastiques (adresses IPv4 publiques accessibles depuis
-#------ Internet) qui seront associees aux passerelles Nat des sous-reseaux prives a creer
+#------ Internet) qui seront associees aux passerelles Nat des sous-reseaux prives
 #
 #---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone A
   NatEipA:
@@ -289,6 +291,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PrivateRouteTableB
       SubnetId: !Ref PrivateSubnetB
+#------ Creation de la table de routage pour le sous-reseau public de la zone A
   PublicRouteTableA:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -302,6 +305,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTableA
       SubnetId: !Ref PublicSubnetA
+#------ Creation de la table de routage pour le sous-reseau public de la zone B
   PublicRouteTableB:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -315,6 +319,20 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTableB
       SubnetId: !Ref PublicSubnetB 
+#------ Creation de la table de routage pour le sous-reseau public de la zone B
+  PublicRouteTableC:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTableC
+#------ On associe la table de routage au sous-reseau prive 
+  AttachPublicRouteTableC:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTableC
+      SubnetId: !Ref PublicSubnetC 
 #------ Creation de la route pour rooter le trafic depuis toutes 
 #------ les IP du sous-reseau prive vers sa passerelle Nat
   PrivateRouteA:
