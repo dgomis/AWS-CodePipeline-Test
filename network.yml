@@ -174,8 +174,8 @@ Resources:
         Value: 'PublicSubnetC'
       VpcId: !Ref InfraVPC
       CidrBlock: !Select [ 101, !Cidr [ !GetAtt InfraVPC.CidrBlock, 102, 8 ]]
-#------ Creation de la passerelle internet pour faire 
-#------ communiquer le VPC et les sous-reseaux publics
+#------ Creation de la passerelle de sortie internet pour pouvoir rendre trois sous-réseaux   
+#------ des différentes zones A, B et C publics et les faire communiquer avec le VPC
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -188,10 +188,10 @@ Resources:
     Properties:
       VpcId: !Ref InfraVPC
       InternetGatewayId: !Ref InternetGateway
-#------ Creation des adresses IP Elastiques (adresses IPv4 publiques,accessibles 
-#------ depuis Internet) qui seront associees aux passerelles Nat des sous-reseaux prives a creer
+#------ Creation des adresses IP Elastiques (adresses IPv4 publiques accessibles depuis
+#------ Internet) qui seront associees aux passerelles Nat des sous-reseaux prives a creer
 #
-#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone A a creer
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone A
   NatEipA:
     Type: AWS::EC2::EIP
     Properties:
@@ -199,7 +199,7 @@ Resources:
         - Key: Name
           Value: NatEipA
       Domain: vpc
-#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone B a creer 
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone B 
   NatEipB:
     Type: AWS::EC2::EIP
     Properties:
@@ -207,7 +207,7 @@ Resources:
         - Key: Name
           Value: NatEipB
       Domain: vpc
-#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone C a creer
+#---------- Creation d'une ip elastique qui sera associee a la passerelle Nat du sous-reseau prive de la zone C
   NatEipC:
     Type: AWS::EC2::EIP
     Properties:
@@ -363,3 +363,6 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTableC    
+
+
+
