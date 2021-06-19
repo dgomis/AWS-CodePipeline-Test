@@ -176,6 +176,17 @@ Resources:
         Value: 'PublicSubnetC'
       VpcId: !Ref InfraVPC
       CidrBlock: !Select [ 102, !Cidr [ !GetAtt InfraVPC.CidrBlock, 103, 8 ]]
+#------ Creation des groupes de sous-reseaux pour les instances de bases de donnees Master et Replica
+  DBPublicSubnet:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties: 
+      DBSubnetGroupDescription: Groupe de sous-reseaux pour la BDD
+      SubnetIds: 
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      Tags:
+        - Key: Name
+          Value: DBPublicSubnet
 #------ Creation de la passerelle de sortie internet pour pouvoir rendre trois sous-réseaux   
 #------ des différentes zones A, B et C publics et les faire communiquer avec le VPC
   VPCInternetGateway:
