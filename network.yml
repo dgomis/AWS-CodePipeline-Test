@@ -16,7 +16,7 @@ Parameters:
   Owner:
     Description: Renseigner le nom du createur du template
     Type: String
-    Default: Dacky GOMIS
+    Default: D. GOMIS
   Project:
     Description: Entrer le nom du project
     Type: String
