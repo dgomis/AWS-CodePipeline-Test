@@ -296,6 +296,7 @@ Resources:
       Tags:
         - Key: Name
           Value: PublicRouteTableA
+#------ On associe la table de routage au sous-reseau prive 
   AttachPublicRouteTableA:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -308,6 +309,7 @@ Resources:
       Tags:
         - Key: Name
           Value: PublicRouteTableB
+#------ On associe la table de routage au sous-reseau prive 
   AttachPublicRouteTableB:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -321,30 +323,40 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGatewayA
       RouteTableId: !Ref PrivateRouteTableA
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
   PrivateRouteB:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGatewayB
       RouteTableId: !Ref PrivateRouteTableB
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
   PrivateRouteC:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NatGatewayC
       RouteTableId: !Ref PrivateRouteTableC
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
   PublicRouteA:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTableA
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
   PublicRouteB:
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
       RouteTableId: !Ref PublicRouteTableB
+#------ Creation de la route pour rooter le trafic depuis toutes 
+#------ les IP du sous-reseau prive vers sa passerelle Nat
   PublicRouteC:
     Type: AWS::EC2::Route
     Properties:
