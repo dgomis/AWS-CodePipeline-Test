@@ -1,11 +1,32 @@
-AWSTemplateFormatVersion: 2010-09-09
-Description: >-
-  AWS CloudFormation infrastructure Template
-Resources:
-  WebSecurityGroup:
+#
+#---- PARTIE 2 : GROUPES DE SECURITES
+#
+#------ RDS Security Group 
+  RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Website EC2 security group 
+      GroupDescription: Autorisation de la connexion a la base de donnee depuis le reseau interne
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 10.0.0.0/16
+      - IpProtocol: udp
+        FromPort: 3306
+        ToPort: 3306
+        CidrIp: 10.0.0.0/16
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: RDSSecurityGroup
+#------ WEB Security Group 
+  WEBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Infra EC2 security group
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -13,70 +34,25 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-      VpcId: !Ref VpcIdentifier
-  WebLaunchConfig:
-    Type: AWS::AutoScaling::LaunchConfiguration
+          SourceSecurityGroupId: !Ref InfraLoadBalancerSecurityGroup
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: WebSecurityGroup
+#------ Groupe de sécurité  SSH
+  SSHSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      AssociatePublicIpAddress: false
-      ImageId: !Ref AmiIdentifier
-      InstanceType: t2.micro
-      SecurityGroups:
-        - !Ref WebSecurityGroup
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          sudo systemctl start httpd
-  WebsiteScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      LaunchConfigurationName: !Ref WebsiteLaunchConfig
-      AvailabilityZones:
-        - Fn::Select:
-          - 0
-          - Fn::GetAZs: !Ref AWS::Region
-        - Fn::Select:
-          - 1
-          - Fn::GetAZs: !Ref AWS::Region
-      VPCZoneIdentifier: !Ref PublicSubnets
-      DesiredCapacity: 1
-      MaxSize: 1
-      MinSize: 1
-      TargetGroupARNs:
-        - !Ref WebsiteTargetGroup
-  WebTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Port: 80
-      Protocol: HTTP
-      VpcId: !Ref VpcIdentifier
-  WebLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Type: application
-      Scheme: internet-facing
-      SecurityGroups:
-        - !Ref WebLoadBalancerSecurityGroup
-      Subnets: !Ref PublicSubnets
-  WebsiteLoadBalancerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Website EC2 security group 
+      GroupDescription: Autorisation de la connexion ssh uniquement depuis le reseau interne  
+      SecurityGroupIngress: 
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0 # réseau interne
       SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      VpcId: !Ref VpcIdentifier
-  WebsiteLoadBlancerListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties: 
-      LoadBalancerArn: !Ref WebLoadBalancer
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref WebTargetGroup
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      VpcId: !Ref BenitcheVPC
+      Tags:
+        - Key: Name
+          Value: SSHSecurityGroup
