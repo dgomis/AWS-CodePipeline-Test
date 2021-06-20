@@ -141,6 +141,8 @@ Resources:
       CidrBlock: !Select [ 2, !Cidr [ !GetAtt InfraVPC.CidrBlock, 3, 8 ]]
 #------ Creation de trois sous-reseaux publics identiquent pour la
 #------ haute disponibilite des serveurs dans les zones A, B et C
+#
+#------ Creation du sous-reseau public de la zone A
   PublicSubnetA:
     Type: 'AWS::EC2::Subnet'
     Properties:
