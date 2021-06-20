@@ -17,10 +17,18 @@ Parameters:
     Description: Renseigner le nom du createur du template
     Type: String
     Default: D. GOMIS
-  Project:
-    Description: Renseigner le nom du project
+  ProjectName:
+    Description: Renseigner le nom du project associé a ce Pipeline
     Type: String
     Default: Utilisation de AWS CodePipeline pour deployer des piles avec CloudFormation
+  GitHubOwner:
+    Default: dgomis
+    Description: Organisation ou propriétaire du projet GitHub
+    Type: String
+  GitHubRepo:
+    Default:  dgomis/AWS-CodePipeline 
+    Description: Le nom du dépôt GitHub
+    Type: String
   VpcCidrBlock:
     Type: String
     MinLength: '11'
@@ -85,6 +93,18 @@ Parameters:
     MaxLength: '41'
     AllowedPattern: '[a-zA-Z0-9]*'
     ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "CodePipeline Settings"
+        Parameters:
+          - ProjectName
+      - Label:
+          default: "GitHub Settings"
+        Parameters:
+          - GitHubOwner
+          - GitHubRepo
 #---- PARTIE RESEAU : VPC et sous-reseaux 
 #
 #------ Création du VPC avec son block CIDR ------
