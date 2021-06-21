@@ -54,7 +54,7 @@
                 dpdaction=clear 
                 dpddelay=300s
                 rekey=no
-                left=${IPElasticIntranet} 
+                left=${NatEipA} 
                 leftid=18.134.226.162 
                 leftcert=server.cert.pem
                 leftsendcert=always
