@@ -37,8 +37,8 @@ Parameters:
     Description: Renseigner le block cidr du reseau VPC
     AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})"
     ConstraintDescription: Doit etre une plage CIDR valide de la forme x.x.x.x / x
-  VPN:
-    Description: Entrer la Plage d'adresses IP du reseau distant
+  ReseauLocalDistant:
+    Description: Renseigner la Plage adresse IP du reseau distant
     Type: String
     MinLength: '11'
     MaxLength: '18'
