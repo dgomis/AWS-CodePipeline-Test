@@ -1,0 +1,125 @@
+#---- PARTIE  : AUTOSCALING ET LAUNCH CONFIGURATION
+#
+#------ Creation de la launchconfiguration qui est la machine "patron" 
+#------ qui servira de modele de base pour la creation des autres machines      
+  InfraLaunchConfiguration:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    DependsOn: InfraLoadBalancer
+    Properties:
+      AssociatePublicIpAddress: 'true'
+      InstanceMonitoring: true     
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      KeyName: NetworkKey
+      SecurityGroups:
+        - !Ref WebSecurityGroup
+        - !Ref SSHSecurityGroup
+        - !Ref RDSSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo apt-get update && sudo apt-get upgrade -y
+          sudo groupadd docker
+          sudo usermod -a -G docker ubuntu
+          sudo apt-get -y install stress
+          sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+          sudo apt-get update
+          sudo apt-get -y install docker-ce docker-ce-cli containerd.io
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          sudo touch docker-compose.yml
+          echo "version: '3.3'
+          services:        
+            wordpress:
+              image: conetix/wordpress-with-wp-cli
+              container_name: wordpress
+              restart: always
+              ports:
+                - 80:80
+              environment:
+                WORDPRESS_DB_HOST: ${DBMaster.Endpoint.Address}:3306
+                WORDPRESS_DB_USER: ${DBUsername}
+                WORDPRESS_DB_PASSWORD: ${DBPassword}
+                WORDPRESS_DB_NAME: ${DBName}
+                WORDPRESS_TABLE_PREFIX: "wp_"
+                WORDPRESS_DEBUG: 1
+              volumes: 
+                - wp_data:/var/www/html
+          volumes:
+            wp_data:" > /home/ubuntu/docker-compose.yml
+          cd /home/ubuntu/
+          sudo docker-compose up -d --build
+          sudo docker-compose exec -T wordpress wp core install --url=${InfraLoadBalancer.DNSName} --title=GomisWebSite --admin_user=${dgomis} --admin_password=${WebPassword} --admin_email=${AdresseEmail} --skip-email
+          sudo docker-compose exec -T wordpress wp core update
+          sudo docker-compose exec -T wordpress wp theme activate twentyseventeen
+          sudo docker-compose exec -T wordpress wp language theme install twentyseventeen fr_FR
+          sudo docker-compose exec -T wordpress wp theme update --all
+          sudo docker-compose exec -T wordpress wp plugin update --all
+          sudo docker-compose exec -T wordpress wp plugin install amazon-s3-and-cloudfront --activate
+#------ Nous allons dire a amazon de creer plusieurs machines a 
+#------ partir de notre LaunchConfiguration ("patron") en creant AutoScalingGroup        
+  InfraScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchConfigurationName: !Ref InfraLaunchConfiguration
+      AvailabilityZones:
+        - Fn::Select:
+          - 0
+          - Fn::GetAZs: !Ref AWS::Region
+        - Fn::Select:
+          - 1
+          - Fn::GetAZs: !Ref AWS::Region
+      VPCZoneIdentifier:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      DesiredCapacity: 2
+      MaxSize: 6
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref InfraTargetGroup
+      NotificationConfigurations:
+      - TopicARN: !Ref SnsTopic
+        NotificationTypes:
+        - autoscaling:EC2_INSTANCE_LAUNCH
+#------ Equilibreur de charge, Target group ------   
+#
+#--- On cree le TargetGroup qui represente le groupe de machines qui sera 
+#--- cible par le LoadBalancer. Il permet aux requetes d'etre correctement dirigees.
+  InfraTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref InfraVPC
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+#------ On met le load balancer face internet car c'est lui qui recevra les requetes exterieures.
+#------ Son role est de diriger le trafic reseau vers la ou les machines disponibles et de relayer les reponses
+  InfraLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Type: application
+      Name: InfraLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref InfraLoadBalancerSecurityGroup
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+#------ On ajoute un Listener au LoadBalancer car c'est lui qui permet de recevoir 
+#------ le trafic en entree du LoadBalancer (equilibreur de charge).
+  InfraLoadBlancerListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref InfraLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref InfraTargetGroup
+          
+          
