@@ -39,7 +39,7 @@
       Tags:
         - Key: Name
           Value: WebSecurityGroup
-#------ Groupe de sécurité  SSH
+#------ SSH Security Group
   SSHSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -52,7 +52,28 @@
       SecurityGroupEgress:
       - IpProtocol: -1
         CidrIp: 0.0.0.0/0
-      VpcId: !Ref BenitcheVPC
+      VpcId: !Ref InfraVPC
       Tags:
         - Key: Name
           Value: SSHSecurityGroup
+#------ VPN Security Group           
+  VPNSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Pour Instance EC2
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:       
+      - IpProtocol: udp
+        FromPort: 5400
+        ToPort: 5400
+        CidrIp: 0.0.0.0/0 # réseau distant serveur vpn
+      - IpProtocol: udp
+        FromPort: 500
+        ToPort: 500
+        CidrIp: 0.0.0.0/0  # réseau distant serveur vpn   
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: VPNSecurityGroup
