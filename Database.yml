@@ -19,7 +19,7 @@
       MasterUserPassword: !Ref DBPassword
       Port: 3306
       DBInstanceIdentifier: DBMaster
-      DBSubnetGroupName: !Ref DBSousReseau
+      DBSubnetGroupName: !Ref DBPublicSubnet
       PubliclyAccessible: false      
       DBName: !Ref DBName
       VPCSecurityGroups:
