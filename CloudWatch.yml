@@ -1,3 +1,4 @@
+#
 #------ PARTIE 5 : CLOUDWATCH ------
 #--- Creation des alarmes pour alerter une augmentation et/ou baisse des capacites du CPU, Creation ScaleUpPolicy, les alertes emails
 #
