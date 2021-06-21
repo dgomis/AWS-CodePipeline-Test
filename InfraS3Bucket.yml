@@ -1,0 +1,15 @@
+#---- PARTIE 6 : Bucket S3
+  InfraS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+      BucketName: InfraS3Bucket
+    DependsOn: InfraVPC
+ 
+Outputs:
+  URL:
+    Description: URL pour acceder au site web
+    Value: !Join [ "", [ "http://", !GetAtt InfraLoadBalancer.DNSName, ":80" ] ]
+  Notes:
+    Description: On recupere une adresse URL pour acceder au site Web
+    Value: Commentaires
