@@ -7,8 +7,8 @@
       AllocatedStorage: 20
       BackupRetentionPeriod: 7
       DBInstanceClass: db.t2.micro
-      AllowMajorVersionUpgrade: true
-      AutoMinorVersionUpgrade: true
+      AllowMajorVersionUpgrade: 'true'
+      AutoMinorVersionUpgrade: 'true'
       Engine: MySQL
       AvailabilityZone: !Select
         - 0
@@ -17,7 +17,7 @@
       MasterUsername: !Ref DBUsername
       MasterUserPassword: !Ref DBPassword
       Port: 3306
-      DBInstanceIdentifier: BDMaster
+      DBInstanceIdentifier: DBMaster
       DBSubnetGroupName: !Ref DBSousReseau
       PubliclyAccessible: false      
       DBName: !Ref DBName
