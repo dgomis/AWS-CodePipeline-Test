@@ -17,7 +17,7 @@ Parameters:
     Description: Renseigner le nom du createur du template
     Type: String
     Default: D. GOMIS
-  ProjectName:
+  Project:
     Description: Renseigner le nom du project associé a ce Pipeline
     Type: String
     Default: Utilisation de AWS CodePipeline pour deployer des piles avec CloudFormation
