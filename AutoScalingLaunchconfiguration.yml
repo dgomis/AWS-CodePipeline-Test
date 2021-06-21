@@ -52,7 +52,7 @@
             wp_data:" > /home/ubuntu/docker-compose.yml
           cd /home/ubuntu/
           sudo docker-compose up -d --build
-          sudo docker-compose exec -T wordpress wp core install --url=${InfraLoadBalancer.DNSName} --title=GomisWebSite --admin_user=${dgomis} --admin_password=${WebPassword} --admin_email=${AdresseEmail} --skip-email
+          sudo docker-compose exec -T wordpress wp core install --url=${InfraLoadBalancer.DNSName} --title=GomisWebSite --admin_user=${WebAdminUsername} --admin_password=${WebAdminPassword} --admin_email=${AdresseEmail} --skip-email
           sudo docker-compose exec -T wordpress wp core update
           sudo docker-compose exec -T wordpress wp theme activate twentyseventeen
           sudo docker-compose exec -T wordpress wp language theme install twentyseventeen fr_FR
