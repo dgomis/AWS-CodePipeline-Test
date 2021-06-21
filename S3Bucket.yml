@@ -1,11 +1,11 @@
 #
 #---- PARTIE 7 : Bucket S3
 #
-  InfraS3Bucket:
+  S3Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
       AccessControl: Private
-      BucketName: InfraS3Bucket
+      BucketName: s3bucket
     DependsOn: InfraVPC
  
 Outputs:
