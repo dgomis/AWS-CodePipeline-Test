@@ -48,11 +48,11 @@ Parameters:
   IPPublicDistant:
     Description: Ip public du client distant
     Type: String
-    ConstraintDescription: Renseigner l'IP du client autorise a se connecter au serveur
+    ConstraintDescription: Renseigner IP du client autorise a se connecter au serveur
   AdresseEmail:
     Description: Adresse mail de contact
     Type: String
-    ConstraintDescription: Renseigner l'adresse mail de contact pour les alertes mails
+    ConstraintDescription: Renseigner une adresse mail de contact pour les alertes mails
   DBName:
     Default: wordpressdb
     Description: Ma base de donnee
@@ -63,7 +63,7 @@ Parameters:
     ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
   DBUsername:
     NoEcho: 'true'
-    Description: L'utilisateur autorise a acceder a la BDD
+    Description: Utilisateur autorise a acceder a la BDD
     Type: String
     MinLength: '1'
     MaxLength: '16'
@@ -71,23 +71,23 @@ Parameters:
     ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
   DBPassword:
     NoEcho: 'true'
-    Description: Mot de passe pour l'acces a la BDD
+    Description: Mot de passe pour un acces a la BDD
     Type: String
     MinLength: '8'
     MaxLength: '41'
     AllowedPattern: '[a-zA-Z0-9]*'
     ConstraintDescription: Contient uniquement des caracteres alphanumeriques.
-  WPAdminUsername:
+  WebAdminUsername:
     NoEcho: 'true'
-    Description: L'utilisateur autorise a acceder a l'interface wordpress 
+    Description: Utilisateur autorise a acceder a notre interface Web 
     Type: String
     MinLength: '1'
     MaxLength: '16'
     AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
     ConstraintDescription: Doit commencer par une lettre et ne contenir que des caracteres alphanumeriques.
-  WpAdminPassword:
+  WebAdminPassword:
     NoEcho: 'true'
-    Description: Mot de passe pour l'acces web de wordpress
+    Description: Mot de passe pour acceder au site Web
     Type: String
     MinLength: '8'
     MaxLength: '41'
