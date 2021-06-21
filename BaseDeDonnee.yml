@@ -1,6 +1,6 @@
 #---- PARTIE 3 : BDD
 #
-#--- Creation Instance base de donnee Master et Replica
+#---- Creation Instance base de donnee Master et Replica
   DBMaster:
     Type: 'AWS::RDS::DBInstance'
     Properties:
@@ -26,7 +26,7 @@
       Tags:
         - Key: Name
           Value: DBMaster
-#--------- Serveur base de donnee Replica       
+#---- Serveur base de donnee Replica       
   DBReplica:
     Type: 'AWS::RDS::DBInstance'
     Properties:
