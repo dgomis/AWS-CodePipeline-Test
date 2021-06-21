@@ -1,3 +1,4 @@
+#
 #---- PARTIE 4 : AUTOSCALING ET LAUNCH CONFIGURATION
 #
 #------ Creation de la launchconfiguration qui est la machine "patron" 
