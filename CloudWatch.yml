@@ -1,0 +1,63 @@
+#------ PARTIE 4 : CLOUDWATCH ------
+#--- Creation des alarmes pour alerter une augmentation et/ou baisse des capacites du CPU, Creation ScaleUpPolicy, les alertes emails
+#
+#------ Creation des alertes email
+  SnsTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      Subscription:
+        - Endpoint: !Ref AdresseEmail 
+          Protocol: email
+      TopicName: SnsTopic
+#------ Politique alerte pour une augmentation du cpu
+  ScaleUpPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref InfraScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: 1
+#------ Creation alarme CloudWatch pour alerter une augmentation du cpu
+  HighCpuUsageAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Average
+      Threshold: 80
+      AlarmDescription: Declenche une alarme si le CPU est superieur a 80% pendant 5 minutes
+      Period: 300
+      AlarmActions: 
+        - !Ref SnsTopic
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: AutoScalingGroupName 
+          Value: !Ref InfraScalingGroup
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: UtilisationCPUEleve
+#------ Politique alerte pour une baisse du cpu
+  ScaleDownPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref InfraScalingGroup
+      Cooldown: 1
+      ScalingAdjustment: -1
+#------ Creation alarme CloudWatch pour alerter sur une baisse du cpu
+  LowCpuUsageAlarm:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      EvaluationPeriods: 1
+      Statistic: Average
+      Threshold: 70
+      AlarmDescription: Declenche une alarme si le CPU est inferieur a 70% pendant 5 minutes
+      Period: 300
+      AlarmActions: 
+        - !Ref SnsTopic
+      Namespace: AWS/EC2
+      Dimensions:
+        - Name: AutoScalingGroupName 
+          Value: !Ref InfraScalingGroup
+      ComparisonOperator: LessThanThreshold
+      MetricName: UtilisationCPUBasse
+      
+      
