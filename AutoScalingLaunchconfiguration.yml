@@ -7,7 +7,7 @@
     DependsOn: InfraLoadBalancer
     Properties:
       AssociatePublicIpAddress: 'true'
-      InstanceMonitoring: true     
+      InstanceMonitoring: 'true'     
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: t2.micro
       KeyName: NetworkKey
