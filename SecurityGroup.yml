@@ -23,7 +23,7 @@
         - Key: Name
           Value: RDSSecurityGroup
 #------ WEB Security Group 
-  WEBSecurityGroup:
+  WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Infra EC2 security group
