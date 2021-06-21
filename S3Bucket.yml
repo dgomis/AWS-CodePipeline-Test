@@ -1,4 +1,6 @@
+#
 #---- PARTIE 7 : Bucket S3
+#
   InfraS3Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
