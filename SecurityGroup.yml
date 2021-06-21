@@ -56,6 +56,23 @@
       Tags:
         - Key: Name
           Value: SSHSecurityGroup
+#------ Groupe de securite LoadBalancer en sortie et en entree pour ouvrir le trafic
+  InfraLoadBalancerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Infra LoadBalancer security group
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref InfraVPC
+      Tags:
+        - Key: Name
+          Value: InfraLoadBalancerSecurityGroup
 #------ VPN Security Group           
   VPNSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
