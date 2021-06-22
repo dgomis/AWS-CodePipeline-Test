@@ -11,7 +11,7 @@
       InstanceMonitoring: 'true'     
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
       InstanceType: t2.micro
-      KeyName: MyNetworkKey
+      KeyName: !Ref KeyName
       SecurityGroups:
         - !Ref WebSecurityGroup
         - !Ref SSHSecurityGroup
