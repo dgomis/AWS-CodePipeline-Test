@@ -1,11 +1,11 @@
 #
 #---- PARTIE 7 : Bucket S3
 #
-  S3Bucket:
+  BenitcheS3Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
       AccessControl: Private
-      BucketName: s3bucket
+      BucketName: benitches3bucket
     DependsOn: InfraVPC
  
 Outputs:
