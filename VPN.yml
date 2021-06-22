@@ -16,7 +16,7 @@
         SubnetId: 
           !Ref PrivateSubnetA
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
-      KeyName: MyNetworkKey
+      KeyName: !Ref KeyName
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
