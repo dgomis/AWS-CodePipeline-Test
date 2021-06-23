@@ -75,6 +75,7 @@
       VPCZoneIdentifier:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
+        - !Ref PublicSubnetC
       DesiredCapacity: 2
       MaxSize: 6
       MinSize: 1
@@ -111,6 +112,7 @@
       Subnets:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
+        - !Ref PublicSubnetC
 #------ On ajoute un Listener au LoadBalancer car c'est lui qui permet de recevoir 
 #------ le trafic en entree du LoadBalancer (equilibreur de charge).
   InfraLoadBlancerListener:
